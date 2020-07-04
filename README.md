@@ -1,6 +1,6 @@
-# Bot template
+# deltabet_bot
 
-**Python template** for building a **Bot**
+**Bot**, created by [Giulio Coa](https://t.me/giulioCoaInCamelCase) for [Piero Sepi](https://t.me/PieroSepi), that manage the bet from [Total Corner](https://totalcorner.com) site
 
 
 
@@ -33,6 +33,18 @@ Library that lets you schedule your Python code to be executed later, either jus
 
 
 
+### Pandas
+
+Open source easy-to-use data structures and data analysis tools for Python
+
+* Version: 1.0.3
+* Website: https://pandas.pydata.org/docs/
+* Documentation: https://pandas.pydata.org/docs/reference/frame.html
+* Module name: **pandas**
+* Installing: `pip install --upgrade --no-cache-dir pandas`
+
+
+
 ### PyMySQL
 
 Module used to connect to a MySQL Server
@@ -54,7 +66,7 @@ Module used to connect to a MySQL Server
 
 ### Pyrogram
 
-Module used to create the UserBot
+Module used to create the Bot
 
 * Version: 0.17.0-async
 * Website: https://docs.pyrogram.org/
@@ -74,19 +86,6 @@ HTTP library for Python, built for human beings
 * Documentation: https://requests.readthedocs.io/en/master/user/advanced/
 * Module name: **requests**
 * Installing: `pip install --upgrade --no-cache-dir requests`
-
-
-
-### Telegraph
-
-Python Telegraph API wrapper
-
-* Version: 1.4.0
-* Website: https://python-telegraph.readthedocs.io/en/latest/
-* Documentation: https://python-telegraph.readthedocs.io/en/latest/telegraph.html
-* Module name: **telegraph**
-* Requirements: **requests**
-* Installing: `pip install --upgrade --no-cache-dir telegraph`
 
 
 

@@ -1,13 +1,16 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.tigger.interval import IntervalTrigger
 import asyncio
+import functools
 import logging as logger
+import pandas
 import pymysql
-from pyrogram import CallbackQuery, ChatPermission, Client, Filters, InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, InlineQueryResultArticle, KeyboardButton, Message, ReplyKeyboardMarkup
-from pyrogram.errors import FloodWait
+from pyrogram import Client, Filters, Message
+from pyrogram.client.ext import Emoji
 import re
 import res
 from res import Configurations
+import requests
 
 configurations_map = {
 	"commands": "commands",
@@ -28,7 +31,7 @@ connection = pymysql.connect(
 	host=config.get("database")["host"],
 	user=os.environ.pop("database_username", config.get("database")["username"]),
 	password=os.environ.pop("database_password", config.get("database")["password"]),
-	database=config.get("database")["name"],
+	database=config.get("bot_username"),
 	port=config.get("database")["port"],
 	charset="utf8",
 	cursorclass=pymysql.cursors.DictCursor,
@@ -46,15 +49,12 @@ scheduler = AsyncIOScheduler()
 with connection.cursor() as cursor:
 	logger.info("Setting the admins list ...")
 	cursor.execute("SELECT `id` FROM `Admins` WHERE `username`=%(user)s;", {
-		"user": "username"
+		"user": "PieroSepi"
 	})
 	config.set("creator", cursor.fetchone()["id"])
 
 	cursor.execute("SELECT `id` FROM `Admins`;")
 	admins_list = list(map(lambda n: n["id"], cursor.fetchall()))
-
-	cursor.execute("SELECT * FROM `Blackist`;")
-	blacklist = list(map(lambda n: n["id"], cursor.fetchall()))
 
 	logger.info("Admins setted\nSetting the chats list ...")
 	cursor.execute("SELECT `id` FROM `Chats`;")
@@ -211,59 +211,6 @@ async def announces(client: Client, message: Message):
 	logger.info("I\'ve answered to /ads because of {}.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
 
 
-@app.on_callback_query(Filters.chat(chats_list) & ~Filters.user(blacklist))
-async def answer_inline_button(client: Client, callback_query: CallbackQuery):
-	global config, connection
-
-	# Retrieving the data of the CallbackQuery
-	data = callback_query.data.split(" ... ")
-
-	"""
-		data[0] is ...
-		data[1] is ...
-		...
-	"""
-
-	# Retrieving the keyboard of the CallbackQuery
-	keyboard = callback_query.message.reply_markup.inline_keyboard
-
-	# Retrieving the text of the CallbackQuery
-	text = callback_query.message.text
-
-	# Checking if the CallbackQuery have the correct syntax
-	if data[0] == "Booked":
-		text = "Text"
-
-		# Restructuring the InlineKeyboard
-		keyboard[0] = [
-			InlineKeyboardButton(" ... ", callback_data=" ... ")
-		]
-	elif data[0] == "Free":
-		text = "Text"
-		keyboard = list()
-
-		# Restructuring the InlineKeyboard
-		keyboard.append([
-			InlineKeyboardButton(" ... ", callback_data=" ... ")
-		])
-
-	keyboard = InlineKeyboardMarkup(keyboard)
-
-	# Checking if the output text can be longest then the maximum length
-	output = await callback_query.edit_message_text(text[: config.get("message_max_length")], disable_web_page_preview=True)
-	if len(text) >= config.get("message_max_length"):
-		for i in range(1, len(text), config.get("message_max_length")):
-			try:
-				output = await res.split_reply_text(config, message, text[i : i + config.get("message_max_length")], quote=False, disable_web_page_preview=True)
-			except FloodWait as e:
-				asyncio.sleep(e.x)
-
-	await callback_query.edit_message_reply_markup(None)
-	await output.edit_reply_markup(keyboard)
-
-	logger.info("I have answered to an Inline button.")
-
-
 @app.on_message(Filters.service & Filters.chat(chats_list))
 async def automatic_management_service(_, message: Message):
 	global config, connection
@@ -352,63 +299,6 @@ async def ban_hammer(client: Client, message: Message):
 	logger.info("I\'ve answered to /{} because of {}.".format(command, "@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
 
 
-@app.on_message(Filters.command(["blacklist", "unblacklist"], prefixes="/") & Filters.user(admins_list) & Filters.chat(chats_list))
-async def blacklist(client: Client, message: Message):
-	# /blacklist
-	# /unblacklist <username>
-	global admins_list, blacklist, chats_list, config, connection
-
-	command = message.command.pop(0)
-
-	# Checking if the command is correct
-	if command == "unblacklist" and message.command is False:
-		await res.split_reply_text(config, message, "The syntax is: <code>/unblacklist &lt;username&gt;</code>.", quote=False)
-		logger.info("{} have sent an incorrect /unblacklist request.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
-		return
-	elif message.reply_to_message is None:
-		logger.info("{} have sent an incorrect /blacklist request.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
-		return
-
-	# Executing the command
-	if command == "unblacklist":
-		user = await client.get_users(message.command.pop(0))
-
-		blacklist.remove(user.id)
-
-		for i in chats_list:
-			await client.unban_chat_member(i, user.id)
-
-		# Removing the user from the blacklist
-		with connection.cursor() as cursor:
-			cursor.execute("DELETE FROM `Blacklist` WHERE `id`=%(id)s;", {
-				"id": user.id
-			})
-		connection.commit()
-	else:
-		user = message.reply_to_message.from_user
-
-		admins_list.remove(user.id)
-
-		blacklist.append(user.id)
-
-		for i in chats_list:
-			await client.kick_chat_member(i, user.id)
-
-		# Adding the user to the blacklist
-		with connection.cursor() as cursor:
-			cursor.execute("DELETE FROM `Admins` WHERE `id`=%(id)s;", {
-				"id": user.id
-			})
-
-			cursor.execute("INSERT INTO `Blacklist` (`id`) VALUES (%(id)s);", {
-				"id": user.id
-			})
-		connection.commit()
-
-	await res.split_reply_text(config, message, "I have {}ed @{}.".format(command, user.username), quote=False)
-	logger.info("I\'ve answered to /{} because of {}.".format(command, "@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
-
-
 @app.on_message(Filters.command("check", prefixes="/") & Filters.user(config.get("creator")))
 async def check_database(_, message: Message):
 	# /check
@@ -428,37 +318,7 @@ async def check_database(_, message: Message):
 	logger.info("I\'ve answered to /check because of {}.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
 
 
-@app.on_message(Filters.command("command1", prefixes="/") & Filters.private & ~Filters.user(blacklist))
-async def command1(client: Client, message: Message):
-	# /command1
-	"""
-		If the command has any arguments, it can be acceded at message.command parameter
-		That parameter is a list with the first element equal to the command (message.command[0] == "command1")
-	"""
-	logger.info("I\'ve answered to /command1 because of {}.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
-
-
-@app.on_message(Filters.command("command2", prefixes="/") & Filters.private & ~Filters.user(blacklist))
-async def command2(_, message: Message):
-	# /command2
-	keyboard=list()
-
-	keyboard.append([
-		KeyboardButton("Text")
-	])
-	keyboard.append([
-		KeyboardButton("Text"),
-		KeyboardButton("Text")
-	])
-
-	keyboard = ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True, one_time_keyboard=False)
-
-	await message.reply_text("Text", reply_markup=keyboard)
-
-	logger.info("I\'ve answered to /command2 because of {}.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
-
-
-@app.on_message(Filters.command("help", prefixes="/") & Filters.private & ~Filters.user(blacklist))
+@app.on_message(Filters.command("help", prefixes="/") & Filters.private)
 async def help(_, message: Message):
 	# /help
 	global admins_list, config
@@ -482,10 +342,9 @@ async def initializing(client: Client, _):
 	global config
 
 	# Scheduling the functions
-	scheduler.add_job(update, IntervalTrigger(days=1, timezone="Europe/Rome"), kwargs={
+	scheduler.add_job(res.monitors_matches, IntervalTrigger(hours=1, timezone="Europe/Rome"), kwargs={
 		"client": client
 	})
-
 	# Setting the maximum message length
 	max_length = await client.send(functions.help.GetConfig())
 	config.set("message_max_length", max_length.message_length_max)
@@ -495,37 +354,6 @@ async def initializing(client: Client, _):
 	config.set("bot_id", bot.id)
 
 	logger.info("I\'ve answered to /init because of {}.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
-
-
-@app.on_inline_query(Filters.chat(chats_list) & ~Filters.user(blacklist))
-async def inline(_, inline_query: InlineQuery):
-	# Inline command
-	query = inline_query.query.lower()
-	response = list()
-	keyboard = list()
-
-	# Checking if the text of the query is correct
-	if query == "text":
-		title = "Text"
-		url = "Text"
-		description = "Text"
-
-		response.append(InlineQueryResultArticle(title=title, input_message_content=InputTextMessageContent("Text", parse_mode="html", disable_web_page_preview=True), url=url, description=description))
-	elif query == "text":
-		title = "Text"
-		url = "Text"
-		description = "Text"
-
-		keyboard.append([
-			InlineKeyboardButton("Text", callback_data="Text", url="Text")
-		])
-
-		response.append(InlineQueryResultArticle(title=title, input_message_content=InputTextMessageContent("Text", parse_mode="html", disable_web_page_preview=True), url=url, description=description, reply_markup=keyboard))
-	else:
-		response.append(InlineQueryResultArticle(title="Unknown", input_message_content=InputTextMessageContent("List of word to use as keyword in the Inline Mode:\n\t<code>{}</code>".format("</code>\n\t<code>".join(keywords)), parse_mode="html")))
-
-	await inline_query.answer(response, cache_time=1)
-	logger.info("I sent the answer to the Inline Query of {}.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
 
 
 @app.on_message(Filters.command("link", prefixes="/") & Filters.group & Filters.chat(chats_list) & ~Filters.user(blacklist))
@@ -587,14 +415,6 @@ async def mute_hammer(client: Client, message: Message):
 
 	await res.split_reply_text(config, message, "I have {}d {}.".format(command, "@{}".format(user.username) if "mute" in command else "all the users in the chat"), quote=False)
 	logger.info("I\'ve answered to /{} because of {}.".format(command, "@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
-
-
-def queue1(client: Client, ...):
-	logger.info("I have done my job.")
-
-
-def queue2(client: Client, ...):
-	logger.info("I have done my job.")
 
 
 @app.on_message(Filters.command("remove", prefixes="/") & (Filters.user(config.get("creator")) | Filters.channel))
@@ -667,29 +487,16 @@ async def report(_, message: Message):
 	logger.info("I\'ve answered to /report because of {}.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
 
 
-@app.on_message(Filters.text & Filters.private & ~Filters.user(blacklist))
-async def split(client: Client, message: Message):
-	if message.text == " ... ":
-		pass
-	elif message.text == " ... ":
-		pass
-
-		...
-
-	else:
-		pass
-
-
-@app.on_message(Filters.command("start", prefixes="/") & Filters.private & ~Filters.user(blacklist))
+@app.on_message(Filters.command("start", prefixes="/") & Filters.private)
 async def start(client: Client, message: Message):
 	# /start
 	global config
 
-	await res.split_reply_text(config, "Welcome @{}.\nThis bot ... ".format(message.from_user.username), quote=False)
-	logger.info("I\'ve answered to /start because of {}.".format("@{}".format(message.from_user.username) if message.from_user.username is not None else message.from_user.id))
+	await res.split_reply_text(config, "Welcome @{}.\nThis bot can help you with the bet of the soccer match.\nSee the <a href=\" ... \">[CHANGELOG] channel</a> for the updates.".format(message.from_user.username), quote=False)
+	logger.info("I\'ve answered to /start because of @{}.".format(message.from_user.username))
 
 
-@app.on_message(res.unknown_filter(config) & Filters.private & ~Filters.user(blacklist))
+@app.on_message(res.unknown_filter(config) & Filters.private)
 async def unknown(_, message: Message):
 	global config
 
@@ -847,4 +654,3 @@ app.set_parse_mode("html")
 logger.info("Set the markup syntax\nStarted serving ...")
 scheduler.start()
 app.run()
-connection.close()

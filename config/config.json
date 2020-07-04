@@ -25,27 +25,9 @@
       "parameters": ""
     },
     {
-      "name": "blacklist",
-      "description": "Insert a player in the blacklist",
-      "domain": "admin",
-      "parameters": ""
-    },
-    {
       "name": "check",
       "description": "Check the database",
       "domain": "creator",
-      "parameters": ""
-    },
-    {
-      "name": "command1",
-      "description": "Command example",
-      "domain": "all",
-      "parameters": ""
-    },
-    {
-      "name": "command2",
-      "description": "Command example",
-      "domain": "all",
       "parameters": ""
     },
     {
@@ -108,12 +90,6 @@
       "domain": "admin",
       "parameters": ""
     },
-    {
-      "name": "unblacklist",
-      "description": "Remove a player from the blacklist",
-      "domain": "admin",
-      "parameters": "&lt;username&gt;"
-    },
      {
       "name": "unmute",
       "description": "Unmute a player",
@@ -143,6 +119,6 @@
   "logger": {
     "format": "%(asctime)s [%(levelname)s] %(message)s",
     "level": 20,
-    "path": "log/Bot.log"
+    "path": "log/deltabet_bot.log"
   }
 }

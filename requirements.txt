@@ -7,15 +7,17 @@ cffi==1.14.0
 chardet==3.0.4
 cryptography==2.9.2
 idna==2.9
+numpy==1.18.5
+pandas==1.0.4
 pyaes==1.6.1
 pycparser==2.20
 PyMySQL==0.9.3
 Pyrogram @ https://github.com/pyrogram/pyrogram/archive/asyncio.zip
 PySocks==1.7.1
+python-dateutil==2.8.1
 pytz==2020.1
 requests==2.23.0
 six==1.15.0
-telegraph==1.4.0
 TgCrypto==1.2.1
 tzlocal==2.1
 urllib3==1.25.9
